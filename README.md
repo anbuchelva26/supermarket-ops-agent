@@ -1,47 +1,139 @@
 # Supermarket Ops Agent
 
-A conversational agent that runs a small Indian kirana store end-to-end from Telegram —
-receiving stock, cutting GST-correct bills, running customer credit (khata), closing the
-day, and generating PDF invoices / PPTX analysis decks on demand.
+A conversational AI agent that runs a small Indian kirana/supermarket end-to-end through Telegram.
 
-Built on the **Claude Agent SDK**. The model orchestrates a set of thin, well-scoped tools
-(skills) — there is no keyword/regex intent router. Business rules (oversell guard, GST
-maths, idempotency, khata rules) live inside the tools, at the point where data changes.
+The agent can receive stock, create and edit GST-correct bills, manage customer credit (Khata), check inventory and low-stock items, close the business day, remember preferences, and generate real PDF invoices and PPTX sales-analysis decks on demand.
 
-## Project layout
+Built with **Google ADK (Agent Development Kit)** and **Google Gemini**.
 
-```
-supermarket-ops-agent/
-├── bot/            Telegram entrypoint + Claude Agent SDK session wiring
-├── skills/         The tool surface the agent orchestrates (inventory, billing, khata,
-│                   analytics, documents, preferences)
-├── db/             Schema + connection/transaction helpers (SQLite/Postgres)
-├── documents/      PDF invoice + PPTX analysis deck generation
-├── tests/          Unit + concurrency/idempotency tests
-├── scripts/        One-off utilities (e.g. seeding sample products)
-├── docs/           Phase plan and architecture notes
-└── assets/         Sample generated outputs, screenshots, logo, etc.
-```
+The Gemini model acts as the reasoning/orchestration layer and decides which tools to call. There is no large keyword/regex-based intent router. Business rules such as stock validation, GST calculations, oversell protection, idempotency, and Khata constraints are implemented inside the tools/skills where the actual data changes occur.
 
-## Getting started
+---
 
-1. `pip install -r requirements.txt`
-2. Copy `.env.example` to `.env` and fill in `TELEGRAM_BOT_TOKEN` and `ANTHROPIC_API_KEY`
-3. `python scripts/seed_products.py` to load a starter product catalogue
-4. `python -m bot.main` to start polling
+## Features
 
-## Phases
+### 🧾 Conversational Billing
 
-See `docs/PHASES.md` for the 4-phase build plan and `docs/ARCHITECTURE.md` for the
-control-loop and skill design this scaffold follows.
+- Start a new bill through Telegram
+- Add products using natural language
+- Support multiple line items
+- Edit quantities across multiple turns
+- Remove items from a draft bill
+- View the current draft bill
+- Finalize bills using:
+  - Cash
+  - UPI
+  - Card
+  - Khata
+- Store payment references when applicable
+- Stock is deducted only when a bill is finalized
 
-## Deliverables checklist (from the assignment brief)
+### 📦 Inventory Management
 
-- [ ] Live Telegram bot, handle in this README
-- [ ] Built on a modern agent harness (Claude Agent SDK)
-- [ ] Skills & tools (the graded core)
-- [ ] PDF invoices, GST-correct
-- [ ] PPTX analysis deck with real charts
-- [ ] README section: harness choice, control loop, skill design, hard-parts solutions
-- [ ] 4–5 min demo recording
-- [ ] Private GitHub repo with collaborators invited
+- Add new products
+- Receive stock
+- Check current stock
+- Search products
+- Track:
+  - Cost price
+  - Selling price
+  - MRP/sell price
+  - Quantity
+  - Unit
+  - GST rate
+  - HSN code
+  - Reorder level
+- Low-stock detection
+- Overselling is prevented at the database/tool layer
+- Stock changes are recorded in a stock ledger
+
+### 🧮 GST
+
+- GST-inclusive selling prices
+- Configurable GST rates
+- HSN code support
+- CGST + SGST breakup
+- Per-line tax calculation and rounding
+- GST totals stored with finalized bills
+
+### 📒 Khata / Customer Credit
+
+- Create or find customers
+- Add credit transactions
+- Record customer payments
+- Check outstanding balance
+- Prevent invalid payments/overpayments
+- Khata transactions are stored in a persistent ledger
+
+### 📊 Analytics
+
+- Daily closing summary
+- Sales summaries
+- Top-selling products
+- GST collected
+- Payment-mode analysis
+- Stock health analysis
+
+### 📄 Documents
+
+- Generate real PDF GST invoices
+- Generate PPTX sales-analysis decks
+- PPTX decks contain real charts generated from store data
+
+### 🧠 Persistent Preferences
+
+Store shop-owner preferences outside the model context so they persist across conversations and sessions.
+
+### 🔐 Reliability
+
+- SQLite transactions
+- Atomic stock decrement
+- Oversell protection
+- Idempotency protection for repeated requests
+- Concurrency tests
+- Draft bills do not mutate stock until finalization
+
+---
+
+## Architecture
+
+```text
+                         Telegram
+                            │
+                            ▼
+                  ┌───────────────────┐
+                  │ Telegram Handler  │
+                  │     (aiogram)     │
+                  └─────────┬─────────┘
+                            │
+                            ▼
+                  ┌───────────────────┐
+                  │   Google ADK      │
+                  │      Agent        │
+                  │                   │
+                  │ Gemini reasoning  │
+                  │ + tool selection  │
+                  └─────────┬─────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+        Inventory       Billing         Khata
+          Skills         Skills         Skills
+              │             │             │
+              └─────────────┼─────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+          Analytics      Documents     Preferences
+                            │
+                            ▼
+                     ┌──────────────┐
+                     │    SQLite    │
+                     │              │
+                     │ Products     │
+                     │ Bills        │
+                     │ Customers    │
+                     │ Ledgers      │
+                     │ Preferences  │
+                     └──────────────┘
