@@ -1,0 +1,17 @@
+# Google Gemini Agent
+google-adk
+google-genai
+
+# Telegram
+aiogram
+
+# Documents
+reportlab
+python-pptx
+matplotlib
+
+# Environment
+python-dotenv
+
+# Testing
+pytest
